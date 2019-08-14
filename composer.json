@@ -1,0 +1,16 @@
+{
+    "name": "OpenMageModuleFostering/Pitney_Bowes_GSP",
+    "type": "magento-module",
+    "license": "Open-Software-License-(OSL)",
+    "homepage": "",
+    "description": "Pitney Bowes Global Shipping Platform (GSP) simplifies cross-border transactions and enables global ecommerce!",
+    "authors": [
+    {
+        "name": "Shane Bogdan",
+        "email": "shane.bogdan@pb.com"
+    }
+],
+    "suggest": {
+        "magento-hackathon/magento-composer-installer": "*"
+    }
+}
