@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Product:       Pb_Pbgsp (1.3.5)
- * Packaged:      2016-04-06T13:00:10+00:00
- * Last Modified: 2016-03-17T11:08:10+00:00
+ * Product:       Pb_Pbgsp (1.3.6)
+ * Packaged:      2016-04-14T14:05:10+00:00
+ * Last Modified: 2016-04-06T13:00:10+00:00
  * File:          app/code/local/Pb/Pbgsp/Model/Catalog/File.php
  * Copyright:     Copyright (c) 2016 Pitney Bowes <info@pb.com> / All rights reserved.
  */
@@ -220,6 +220,13 @@ class Pb_Pbgsp_Model_Catalog_File {
                     ->addAttributeToSelect('pb_pbgsp_product_condition')
                     ->addAttributeToSelect('pb_pbgsp_upload_delete')
                     ->addAttributeToSelect('pb_pbgsp_upload_deleted_on')
+                    ->addAttributeToSelect('pb_pbgsp_commodity_height')
+                    ->addAttributeToSelect('pb_pbgsp_commodity_width')
+                    ->addAttributeToSelect('pb_pbgsp_commodity_length')
+                    ->addAttributeToSelect('pb_pbgsp_package_weight')
+                    ->addAttributeToSelect('pb_pbgsp_package_height')
+                    ->addAttributeToSelect('pb_pbgsp_package_width')
+                    ->addAttributeToSelect('pb_pbgsp_package_length')
                     // ->addUrlRewrite($category->getId()) //this will add the url rewrite.
                     ->addAttributeToSelect('price')
                     ->addAttributeToSelect('weight');
@@ -494,8 +501,9 @@ class Pb_Pbgsp_Model_Catalog_File {
             if(count($notificationFiles) > 0) {
                 $mail = new Zend_Mail();
                 $mail->setFrom('no-reply@pb.com','Pitney Bowes');
+                $subject = 'Catalog Export Error';
                 $mail->addTo($adminEmail)
-                    ->setSubject('Catalog Export Error')
+
                     ->setBodyText('Catalog Export Error. Please see attached files.');
                 $fileCount = 0;
                 foreach($notificationFiles as $notificationFile) {
@@ -508,7 +516,8 @@ class Pb_Pbgsp_Model_Catalog_File {
                     else if($this->_endsWith($notificationFile,'.ok')) {
                         if(Pb_Pbgsp_Model_Credentials::isCatalogSuccessNotificationEnabled()) {
                             $attachFile = true;
-                            $mail->setSubject('Catalog Export Successful');
+                            $subject = 'Catalog Export Successful';
+                            //$mail->setSubject('Catalog Export Successful');
                         }
 
                     }
@@ -524,6 +533,7 @@ class Pb_Pbgsp_Model_Catalog_File {
                     }
                 }
                 if($fileCount > 0) {
+                    $mail->setSubject($subject);
                     $mail->send();
                     Pb_Pbgsp_Model_Util::log("Email sent with error or success files.");
                 }

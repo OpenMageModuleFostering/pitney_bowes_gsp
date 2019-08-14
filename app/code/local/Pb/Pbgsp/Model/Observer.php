@@ -1,8 +1,8 @@
 <?php
 /**
- * Product:       Pb_Pbgsp (1.3.5)
- * Packaged:      2016-04-06T13:00:10+00:00
- * Last Modified: 2016-03-17T11:08:10+00:00
+ * Product:       Pb_Pbgsp (1.3.6)
+ * Packaged:      2016-04-14T14:05:10+00:00
+ * Last Modified: 2016-04-06T13:00:10+00:00
  * File:          app/code/local/Pb/Pbgsp/Model/Observer.php
  * Copyright:     Copyright (c) 2016 Pitney Bowes <info@pb.com> / All rights reserved.
  */
@@ -39,79 +39,94 @@ class Pb_Pbgsp_Model_Observer {
 
 		return substr($shipMethod,strlen("pbgsp_"));
 	}
+    public function salesOrderShipmentTrackSaveAfter($observer) {
 
-    public function generateInboundParcelPreAdvice($observer) {
+        if(Pb_Pbgsp_Model_Credentials::isASNGenerationEnabled() == '1' && Pb_Pbgsp_Model_Credentials::isGenerateAsnOnAddTrack() == '1') {
+            Pb_Pbgsp_Model_Util::log('salesOrderShipmentTrackSaveAfter');
+            $track = $observer->getTrack();
+            Pb_Pbgsp_Model_Util::log($track->getNumber());
+            $shipment = $track->getShipment();
+            $this->generateASN($shipment);
+        }
 
-        if(Pb_Pbgsp_Model_Credentials::isASNGenerationEnabled() == '1') {
-            try {
-                $shipment = $observer->getEvent()->getShipment();
-                $order = $shipment->getOrder();
-				$shipId = $shipment['entity_id'];
-				
-                /* @var $order Mage_Sales_Model_Order */
 
-                if(!$this->isPbOrder($order))
-                    return;
-                //check if ASN already generated or not
-                $parcel = Mage::getModel("pb_pbgsp/inboundparcel")-> getCollection();
-                $parcel -> addFieldToFilter('mage_order_number', $order -> getRealOrderId());
-                $parcel->addFieldToFilter('mage_order_shipment_number',$shipId);
+    }
+    private function generateASN($shipment) {
+        try {
 
-                if(count($parcel) > 0)
-                    return;
-                Pb_Pbgsp_Model_Util::log("Generting ASN.");
-                $clearPathOrders = Mage::getModel("pb_pbgsp/ordernumber")-> getCollection();
-                $clearPathOrders -> addFieldToFilter('mage_order_number', $order -> getRealOrderId());
-                foreach ($clearPathOrders as $cpOrder) {
-                    $cpOrderNumber = $cpOrder -> getCpOrderNumber();
-                    $tracks = array();
-                    $items = array();
-                    foreach($shipment->getTracksCollection() as $track) {
-                        $tracks[] = $track;
-                    }
-                    foreach($shipment->getItemsCollection() as $item) {
+            $order = $shipment->getOrder();
+            $shipId = $shipment['entity_id'];
 
-                        $items[] = $item;
+            /* @var $order Mage_Sales_Model_Order */
 
-                    }
-					
-                    $parcelResponse = Pb_Pbgsp_Model_Api::generateInboundParcelNumber($shipment,$items,$order,$cpOrderNumber);
-					
-                    if(array_key_exists('errors',$parcelResponse)) {
-                        Pb_Pbgsp_Model_Util::log("Error generating inbound parcel");
-                        Pb_Pbgsp_Model_Util::log($parcelResponse);
-                    }
-                    else {
-						
-						//Save entry in table
-                        $cpParcel = Mage::getModel('pb_pbgsp/inboundparcel');
-                        $cpParcel->setInboundParcel($parcelResponse['parcelIdentifier']);
-                        $cpParcel->setMageOrderNumber( $order->getRealOrderId());
-                        $cpParcel->setPbOrderNumber( $cpOrderNumber);
-						$cpParcel->setMageOrderShipmentNumber( $shipId);
-                        $cpParcel->save();
-						
-						// add the tracking info magento
-						$track = Mage::getModel('sales/order_shipment_track')
-										 ->setShipment($shipment)
-										 ->setData('title', 'PB')
-										 ->setData('number',$parcelResponse['parcelIdentifier'])
-										 ->setData('carrier_code', 'pbgsp')
-										 ->setData('description',$cpOrderNumber)
-										 ->setData('order_id', $shipment->getData('order_id'))
-										 ->save();
-				 
-                        Pb_Pbgsp_Model_Util::log('Inbound Parcel Number Saved');
-                    }
+            if(!$this->isPbOrder($order))
+                return;
+            //check if ASN already generated or not
+            $parcel = Mage::getModel("pb_pbgsp/inboundparcel")-> getCollection();
+            $parcel -> addFieldToFilter('mage_order_number', $order -> getRealOrderId());
+            $parcel->addFieldToFilter('mage_order_shipment_number',$shipId);
+
+            if(count($parcel) > 0)
+                return;
+            Pb_Pbgsp_Model_Util::log("Generting ASN.");
+            $clearPathOrders = Mage::getModel("pb_pbgsp/ordernumber")-> getCollection();
+            $clearPathOrders -> addFieldToFilter('mage_order_number', $order -> getRealOrderId());
+            foreach ($clearPathOrders as $cpOrder) {
+                $cpOrderNumber = $cpOrder -> getCpOrderNumber();
+                $tracks = array();
+                $items = array();
+                foreach($shipment->getTracksCollection() as $track) {
+                    $tracks[] = $track;
+                }
+                foreach($shipment->getItemsCollection() as $item) {
+
+                    $items[] = $item;
 
                 }
 
+                $parcelResponse = Pb_Pbgsp_Model_Api::generateInboundParcelNumber($shipment,$items,$order,$cpOrderNumber);
+
+                if(array_key_exists('errors',$parcelResponse)) {
+                    Pb_Pbgsp_Model_Util::log("Error generating inbound parcel");
+                    Pb_Pbgsp_Model_Util::log($parcelResponse);
+                }
+                else {
+
+                    //Save entry in table
+                    $cpParcel = Mage::getModel('pb_pbgsp/inboundparcel');
+                    $cpParcel->setInboundParcel($parcelResponse['parcelIdentifier']);
+                    $cpParcel->setMageOrderNumber( $order->getRealOrderId());
+                    $cpParcel->setPbOrderNumber( $cpOrderNumber);
+                    $cpParcel->setMageOrderShipmentNumber( $shipId);
+                    $cpParcel->save();
+
+                    // add the tracking info magento
+                    $track = Mage::getModel('sales/order_shipment_track')
+                        ->setShipment($shipment)
+                        ->setData('title', 'PB')
+                        ->setData('number',$parcelResponse['parcelIdentifier'])
+                        ->setData('carrier_code', 'pbgsp')
+                        ->setData('description',$cpOrderNumber)
+                        ->setData('order_id', $shipment->getData('order_id'))
+                        ->save();
+
+                    Pb_Pbgsp_Model_Util::log('Inbound Parcel Number Saved');
+                }
 
             }
-            catch(Exception $e) {
-                Pb_Pbgsp_Model_Util::log("Error creating inbound parcel. ");
-                Pb_Pbgsp_Model_Util::logException($e);
-            }
+
+
+        }
+        catch(Exception $e) {
+            Pb_Pbgsp_Model_Util::log("Error creating inbound parcel. ");
+            Pb_Pbgsp_Model_Util::logException($e);
+        }
+    }
+    public function generateInboundParcelPreAdvice($observer) {
+
+        if(Pb_Pbgsp_Model_Credentials::isASNGenerationEnabled() == '1' && Pb_Pbgsp_Model_Credentials::isGenerateAsnOnAddTrack() != '1') {
+            $shipment = $observer->getEvent()->getShipment();
+            $this->generateASN($shipment);
         }
 
     }
@@ -290,6 +305,7 @@ class Pb_Pbgsp_Model_Observer {
             Mage::getSingleton("customer/session")->setPbOrder(0);
 		}
 	}
+
 
     public function addDutiesOnEstimation($observer){
         Pb_Pbgsp_Model_Util::log('Pb_Pbgsp_Model_Observer.addDutiesOnEstimation');
